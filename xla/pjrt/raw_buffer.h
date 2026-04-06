@@ -18,7 +18,9 @@ limitations under the License.
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "absl/status/status.h"
@@ -44,6 +46,9 @@ class PjRtBuffer;
 class PjRtRawBuffer : public tsl::ReferenceCounted<PjRtRawBuffer> {
  public:
   virtual ~PjRtRawBuffer() = default;
+
+  using RemoteSendCallback =
+      std::function<void(absl::Status status, bool sends_were_enqueued)>;
 
   static absl::StatusOr<tsl::RCReference<PjRtRawBuffer>> CreateRawAliasOfBuffer(
       PjRtBuffer* buffer);
@@ -78,6 +83,17 @@ class PjRtRawBuffer : public tsl::ReferenceCounted<PjRtRawBuffer> {
   // this method for specific alignment requirements.
   virtual Future<> CopyRawDeviceToHost(void* dst, int64_t offset,
                                        int64_t transfer_size) = 0;
+
+  // Copies the buffer to a remote device.
+  // The serialized_descriptor contains metadata about the buffer on the remote
+  // device. The on_done callback is called when the transfer is complete or
+  // on error. The transfer_dependency_avs are dependencies that must be
+  // ready before the transfer can start. The returned PjRtDeviceEventRef is
+  // ready when the transfer is complete or on error.
+  virtual absl::StatusOr<PjRtDeviceEventRef> CopyRawToRemoteDevice(
+      Future<std::string> serialized_descriptor, RemoteSendCallback on_done,
+      std::vector<tsl::RCReference<tsl::AsyncValue>>
+          transfer_dependency_avs) = 0;
 };
 
 // Adds methods common to all implementations of PjRtRawBuffer based on device

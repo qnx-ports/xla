@@ -18,8 +18,9 @@ limitations under the License.
 #include <stddef.h>
 #include <stdint.h>
 
-#include <memory>
 #include <optional>
+#include <string>
+#include <vector>
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -28,7 +29,9 @@ limitations under the License.
 #include "xla/pjrt/c/pjrt_c_api_helpers.h"
 #include "xla/pjrt/c/pjrt_c_api_raw_buffer_extension.h"
 #include "xla/pjrt/c_api_client/pjrt_c_api_client.h"
+#include "xla/pjrt/device_event.h"
 #include "xla/pjrt/raw_buffer.h"
+#include "xla/tsl/concurrency/async_value.h"
 #include "xla/tsl/concurrency/ref_count.h"
 #include "xla/tsl/platform/statusor.h"
 #include "tsl/platform/casts.h"
@@ -172,6 +175,16 @@ Future<> PjRtCApiRawBuffer::CopyRawDeviceToHost(void* dst, int64_t offset,
                                                 int64_t transfer_size) {
   return pjrt::PjRtCApiRawBuffer_CopyRawDeviceToHost(
       c_api_, c_extension_, c_buffer_, dst, offset, transfer_size);
+}
+
+absl::StatusOr<PjRtDeviceEventRef> PjRtCApiRawBuffer::CopyRawToRemoteDevice(
+    Future<std::string> serialized_descriptor,
+    PjRtRawBuffer::RemoteSendCallback on_done,
+    std::vector<tsl::RCReference<tsl::AsyncValue>> transfer_dependency_avs) {
+  absl::Status status = absl::UnimplementedError(
+      "PjRtCApiRawBuffer::CopyRawToRemoteDevice is not implemented");
+  on_done(status, /*sends_were_enqueued=*/false);
+  return status;
 }
 
 static std::optional<absl::StatusOr<tsl::RCReference<PjRtRawBuffer>>>

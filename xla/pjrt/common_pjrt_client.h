@@ -670,6 +670,12 @@ class CommonPjRtRawBufferImpl : public CommonPjRtRawBuffer {
 
   Future<> CopyRawDeviceToHost(void* dst, int64_t offset,
                                int64_t transfer_size) override;
+
+  absl::StatusOr<PjRtDeviceEventRef> CopyRawToRemoteDevice(
+      Future<std::string> serialized_descriptor,
+      PjRtRawBuffer::RemoteSendCallback on_done,
+      std::vector<tsl::RCReference<tsl::AsyncValue>> transfer_dependency_avs)
+      override;
 };
 
 // TODO(parkers): Merge everything here into CommonPjRtBuffer.
