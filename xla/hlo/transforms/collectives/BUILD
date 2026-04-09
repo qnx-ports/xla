@@ -76,6 +76,36 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "async_collective_type_fixer",
+    srcs = ["async_collective_type_fixer.cc"],
+    hdrs = ["async_collective_type_fixer.h"],
+    deps = [
+        "//xla:shape_util",
+        "//xla/hlo/ir:hlo",
+        "//xla/hlo/pass:hlo_pass",
+        "//xla/tsl/platform:errors",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings:string_view",
+    ],
+)
+
+xla_cc_test(
+    name = "async_collective_type_fixer_test",
+    srcs = ["async_collective_type_fixer_test.cc"],
+    deps = [
+        ":async_collective_type_fixer",
+        "//xla:shape_util",
+        "//xla/hlo/ir:hlo",
+        "//xla/hlo/testlib:hlo_hardware_independent_test_base",
+        "//xla/tsl/platform:statusor",
+        "@com_google_absl//absl/strings:string_view",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 xla_cc_test(
     name = "async_collective_creator_test",
     srcs = ["async_collective_creator_test.cc"],
