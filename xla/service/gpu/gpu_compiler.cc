@@ -1624,6 +1624,32 @@ absl::Status GpuCompiler::RunCollectiveScheduleLinearizerPasses(
       .status();
 }
 
+absl::Status GpuCompiler::AutotunerAndPostCleanup(
+    HloModule* hlo_module, const se::GpuComputeCapability& gpu_version,
+    const DebugOptions& debug_options, mlir::MLIRContext* mlir_context,
+    const se::DeviceDescription& device_description,
+    const std::string& platform_name, CompilationStats* compilation_stats,
+    const CompileOptions& options, tsl::thread::ThreadPool* thread_pool,
+    se::StreamExecutor* stream_exec,
+    const Compiler::GpuTargetConfig* target_config,
+    const MultiProcessKeyValueStore& key_value_store,
+    const se::SemanticVersion& toolkit_version, const AliasInfo* alias_info,
+    HloCostAnalysis::ShapeSizeFunction shape_size_fn) {
+  HloPassPipeline pipeline("autotune-conv-and-gemm", compilation_stats);
+  TF_RETURN_IF_ERROR(AddConvAndGemmAutotuningPass(
+      &pipeline, hlo_module, gpu_version, options, thread_pool, stream_exec,
+      target_config, key_value_store, toolkit_version, alias_info,
+      debug_options, mlir_context, shape_size_fn));
+  pipeline.AddPass<ConvertTritonGemmConfig>(device_description, mlir_context);
+  pipeline.AddPass<LayoutNormalization>(&NormalizeLayoutForGpuCustomCalls);
+  auto simplifier_options = GetAlgebraicSimplifierOptions(
+      AlgebraicSimplifierMode::kLayoutNormalization, debug_options,
+      platform_name == "ROCM");
+  pipeline.AddPass<HloPassFix<GpuAlgebraicSimplifier>>(simplifier_options,
+                                                       gpu_version);
+  return pipeline.Run(hlo_module).status();
+}
+
 // Runs optimization passes on the given HLO module.
 absl::Status GpuCompiler::OptimizeHloModule(
     HloModule* hlo_module, se::StreamExecutor* stream_exec,
@@ -1768,6 +1794,18 @@ absl::Status GpuCompiler::OptimizeHloModule(
   }
 
   RETURN_IF_ERROR(RunAsyncDotPasses(hlo_module, compilation_stats));
+  if (hlo_module->config()
+          .debug_options()
+          .xla_gpu_experimental_move_gemm_conv_autotuner()) {
+    RETURN_IF_ERROR(AutotunerAndPostCleanup(
+        hlo_module, gpu_version, hlo_module->config().debug_options(),
+        &mlir_context_, gpu_topology.gpu_target_config().device_description,
+        gpu_topology.gpu_target_config().platform_name, compilation_stats,
+        options, thread_pool.get_mutable(), stream_exec,
+        &gpu_topology.gpu_target_config(), options.key_value_store,
+        device_description.runtime_version(), alias_info,
+        ShapeSizeBytesFunction()));
+  }
   {
     HloPassPipeline pipeline("autotune-fusion-emitters", compilation_stats);
     pipeline.AddPass<FusionWrapper>(
@@ -1993,11 +2031,17 @@ absl::Status GpuCompiler::OptimizeHloPostLayoutAssignment(
   // f32).
   add_float_normalization(pipeline);
 
-  TF_RETURN_IF_ERROR(AddConvAndGemmAutotuningPass(
-      &pipeline, hlo_module, gpu_version, options, thread_pool, stream_exec,
-      &gpu_target_config, options.key_value_store,
-      gpu_target_config.device_description.runtime_version(), alias_info,
-      debug_options, &mlir_context_, ShapeSizeBytesFunction()));
+  if (!hlo_module->config()
+           .debug_options()
+           .xla_gpu_experimental_move_gemm_conv_autotuner()) {
+    RETURN_IF_ERROR(AutotunerAndPostCleanup(
+        hlo_module, gpu_version, debug_options, &mlir_context_,
+        gpu_target_config.device_description, gpu_target_config.platform_name,
+        compilation_stats, options, thread_pool, stream_exec,
+        &gpu_target_config, options.key_value_store,
+        gpu_target_config.device_description.runtime_version(), alias_info,
+        ShapeSizeBytesFunction()));
+  }
 
   // Rewrite GEMMs with broadcasted inputs as strided GEMMs.
   pipeline.AddPass<GemmBroadcastFoldingRewriter>();
@@ -2019,8 +2063,6 @@ absl::Status GpuCompiler::OptimizeHloPostLayoutAssignment(
   // normalized again.
   add_float_normalization(pipeline);
 
-  pipeline.AddPass<ConvertTritonGemmConfig>(
-      gpu_target_config.device_description, &mlir_context_);
 
   // Clean up new_tuple described above.
   pipeline.AddPass<TupleSimplifier>();
