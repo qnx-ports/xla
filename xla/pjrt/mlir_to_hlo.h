@@ -28,6 +28,7 @@ limitations under the License.
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/OwningOpRef.h"
 #include "mlir/Support/LLVM.h"
+#include "shardy/dialect/sdy/ir/dialect.h"
 #include "xla/client/executable_build_options.h"
 #include "xla/hlo/builder/xla_computation.h"
 #include "xla/mlir_hlo/mhlo/transforms/passes.h"
@@ -106,7 +107,8 @@ absl::StatusOr<std::string> Serialize(mlir::ModuleOp mlir_module,
 // MLIR bytecode format will be used.
 absl::StatusOr<std::string> SerializeUsingVersionedStablehlo(
     mlir::ModuleOp mlir_module, absl::string_view requested_target,
-    bool inplace = false, bool allow_mixed_serialization = false);
+    bool inplace = false, bool allow_mixed_serialization = false,
+    std::optional<mlir::sdy::SdyDialectVersion> sdy_version = std::nullopt);
 
 // Given a module that might be a portable artifact, deserialize and upgrade it
 // back to StableHLO.

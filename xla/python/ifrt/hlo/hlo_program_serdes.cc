@@ -27,6 +27,7 @@ limitations under the License.
 #include "mlir/IR/DialectRegistry.h"
 #include "mlir/IR/OwningOpRef.h"
 #include "mlir/Pass/PassManager.h"
+#include "shardy/dialect/sdy/ir/dialect.h"
 #include "shardy/dialect/sdy/ir/register.h"
 #include "stablehlo/dialect/Serialization.h"
 #include "xla/mlir/utils/error_util.h"
@@ -94,7 +95,9 @@ class HloProgramSerDes : public llvm::RTTIExtends<HloProgramSerDes, SerDes> {
     if (version.version_number() >= SerDesVersionNumber(3)) {
       return xla::SerializeUsingVersionedStablehlo(
           *module, xla::GetDefaultStablehloVersion(), /*inplace=*/false,
-          /*allow_mixed_serialization=*/true);
+          /*allow_mixed_serialization=*/true,
+          mlir::sdy::SdyDialectVersion::fromCompatibilityRequirement(
+              mlir::sdy::SdyDialectVersion::CompatibilityRequirement::WEEK_4));
     }
     return xla::SerializeUsingVersionedStablehlo(
         *module, xla::GetDefaultStablehloVersion());
