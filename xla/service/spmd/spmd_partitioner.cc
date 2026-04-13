@@ -687,9 +687,12 @@ PartitionedHlo PartitionedHlo::ReshardNoCache(
   }
 
   // 'Replicated' to partial replicated.
-  if (target.ReplicateOnLastTileDim()) {
-    std::vector<int64_t> group_dims(target.num_dimensions() - 1);
+  if (!target.UseNamedShardingLeaf() && target.HasPartialReplication()) {
+    std::vector<int64_t> group_dims(target.num_dimensions());
     absl::c_iota(group_dims, 0);
+    int64_t replication_dim = target.SubgroupReplicationDim();
+    CHECK_NE(replication_dim, -1) << "Expected replicated dim";
+    group_dims.erase(group_dims.begin() + replication_dim);
     auto target_grouped =
         hlo_sharding_util::GroupShardingOnDims(target, group_dims);
     auto partially_sharded = PerGroupSliceFromReplicated(
@@ -2011,6 +2014,28 @@ std::tuple<HloSharding, HloSharding, int64_t> CreateSplitShardingTuple(
   return {std::move(split_source), std::move(split_target), dim};
 }
 
+bool AreAxesEqual(absl::Span<const AxisRef> s_axes_i,
+                  absl::Span<const AxisRef> s_axes_j,
+                  absl::Span<const AxisRef> t_axes_i,
+                  absl::Span<const AxisRef> t_axes_j) {
+  if (s_axes_i.size() + s_axes_j.size() != t_axes_i.size() + t_axes_j.size()) {
+    return false;
+  }
+  std::vector<AxisRef> s_all;
+  s_all.reserve(s_axes_i.size() + s_axes_j.size());
+  s_all.insert(s_all.end(), s_axes_i.begin(), s_axes_i.end());
+  s_all.insert(s_all.end(), s_axes_j.begin(), s_axes_j.end());
+
+  std::vector<AxisRef> t_all;
+  t_all.reserve(t_axes_i.size() + t_axes_j.size());
+  t_all.insert(t_all.end(), t_axes_i.begin(), t_axes_i.end());
+  t_all.insert(t_all.end(), t_axes_j.begin(), t_axes_j.end());
+
+  absl::c_sort(s_all);
+  absl::c_sort(t_all);
+  return s_all == t_all;
+}
+
 // Matching the following patterns, where X and Y cannot be 1.
 // 1. [..,X,..,Y,..] <-> [..,X*Y,..,1,..]
 // 2. [..,Y,..,X,..] <-> [..,1,..,X*Y,..]
@@ -2030,10 +2055,21 @@ PatternMatchMergeOrSplitSharding(const Shape& base_shape,
     return std::nullopt;
   }
   if ((source.HasPartialReplication() ^ target.HasPartialReplication()) ||
-      (source.HasPartialReplication() &&
+      (source.HasPartialReplication() && !source.UseNamedShardingLeaf() &&
        source.dimensions()[source.TiledDataRank()] !=
            target.dimensions()[target.TiledDataRank()])) {
     return std::nullopt;
+  }
+
+  if (source.UseNamedShardingLeaf() && !target.UseNamedShardingLeaf()) {
+    return PatternMatchMergeOrSplitSharding(
+        base_shape, HloSharding::V3ToV2Sharding(source.named_sharding()),
+        target);
+  }
+  if (!source.UseNamedShardingLeaf() && target.UseNamedShardingLeaf()) {
+    return PatternMatchMergeOrSplitSharding(
+        base_shape, source,
+        HloSharding::V3ToV2Sharding(target.named_sharding()));
   }
 
   // Collect dimension indices with different tile assignment sizes.
@@ -2041,35 +2077,89 @@ PatternMatchMergeOrSplitSharding(const Shape& base_shape,
   // 2. diff_index_2: two tile assignment dimensions are not 1.
   std::vector<int64_t> diff_index_1;
   std::vector<int64_t> diff_index_2;
-  for (int64_t i = 0; i < target.TiledDataRank(); ++i) {
-    int64_t si = source.dimension(i);
-    int64_t ti = target.dimension(i);
-    if (si == ti) {
-      continue;
-    }
-    auto [min, max] = std::minmax(si, ti);
-    if (min == 1) {
-      diff_index_1.push_back(i);
-      continue;
-    }
-    if (max % min != 0) {
-      continue;
-    }
-    if (CeilOfRatio(base_shape.dimensions(i), min) * min % max != 0) {
-      continue;
-    }
-    diff_index_2.push_back(i);
-  }
 
-  // Iterate combination of diff_index_1 and diff_index_2.
-  for (int64_t i : diff_index_2) {
-    for (int64_t j : diff_index_1) {
-      if (source.dimension(i) * source.dimension(j) !=
-          target.dimension(i) * target.dimension(j)) {
+  if (source.UseNamedShardingLeaf()) {
+    const NamedSharding& source_ns = source.named_sharding();
+    const NamedSharding& target_ns = target.named_sharding();
+
+    if (!source_ns.mesh().DeviceAssignmentEquals(target_ns.mesh())) {
+      // We may still be able to match if the meshes are different, so we
+      // convert to V2 and try to match.
+      return PatternMatchMergeOrSplitSharding(
+          base_shape, HloSharding::V3ToV2Sharding(source_ns),
+          HloSharding::V3ToV2Sharding(target_ns));
+    }
+
+    for (int64_t i = 0; i < target.num_dimensions(); ++i) {
+      const NamedSharding::DimensionSharding& s_axes =
+          source_ns.dim_sharding(i);
+      const NamedSharding::DimensionSharding& t_axes =
+          target_ns.dim_sharding(i);
+
+      if (s_axes == t_axes) {
         continue;
       }
-      int64_t new_dim_size = std::min(source.dimension(i), target.dimension(i));
-      return CreateSplitShardingTuple(source, target, i, new_dim_size);
+
+      if (s_axes.axes().empty() || t_axes.axes().empty()) {
+        diff_index_1.push_back(i);
+        continue;
+      }
+
+      if (s_axes.IsPrefixOf(t_axes, source_ns.mesh(), target_ns.mesh()) ||
+          t_axes.IsPrefixOf(s_axes, target_ns.mesh(), source_ns.mesh())) {
+        auto [min, max] =
+            std::minmax({source.dimension(i), target.dimension(i)});
+        if (CeilOfRatio(base_shape.dimensions(i), min) * min % max == 0) {
+          diff_index_2.push_back(i);
+        }
+      }
+    }
+
+    for (int64_t i : diff_index_2) {
+      for (int64_t j : diff_index_1) {
+        // Check if the combined axes for dimensions i and j match between
+        // source and target. This indicates a valid merge or split operation.
+        if (AreAxesEqual(source_ns.dim_sharding(i).axes(),
+                         source_ns.dim_sharding(j).axes(),
+                         target_ns.dim_sharding(i).axes(),
+                         target_ns.dim_sharding(j).axes())) {
+          int64_t new_dim_size =
+              std::min(source.dimension(i), target.dimension(i));
+          return CreateSplitShardingTuple(source, target, i, new_dim_size);
+        }
+      }
+    }
+  } else {
+    for (int64_t i = 0; i < target.TiledDataRank(); ++i) {
+      int64_t si = source.dimension(i);
+      int64_t ti = target.dimension(i);
+      if (si == ti) {
+        continue;
+      }
+      auto [min, max] = std::minmax(si, ti);
+      if (min == 1) {
+        diff_index_1.push_back(i);
+        continue;
+      }
+      if (max % min != 0) {
+        continue;
+      }
+      if (CeilOfRatio(base_shape.dimensions(i), min) * min % max != 0) {
+        continue;
+      }
+      diff_index_2.push_back(i);
+    }
+
+    for (int64_t i : diff_index_2) {
+      for (int64_t j : diff_index_1) {
+        if (source.dimension(i) * source.dimension(j) !=
+            target.dimension(i) * target.dimension(j)) {
+          continue;
+        }
+        int64_t new_dim_size =
+            std::min(source.dimension(i), target.dimension(i));
+        return CreateSplitShardingTuple(source, target, i, new_dim_size);
+      }
     }
   }
 
