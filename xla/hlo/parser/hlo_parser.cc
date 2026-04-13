@@ -682,6 +682,9 @@ class HloParserImpl : public HloParser {
   bool AddComputation(const std::string& name, HloComputation* computation,
                       LocTy name_loc);
 
+  static constexpr int kMaxShapeDepth = 32768;
+  int64_t shape_depth_ = 0;
+
   HloLexer lexer_;
 
   // A stack for the instruction names. The top of the stack stores the
@@ -7013,6 +7016,16 @@ bool HloParserImpl::ParseLayout(Layout* layout) {
 //   ::= shape (',' shape)*
 bool HloParserImpl::ParseShape(Shape* result,
                                bool allow_fallback_to_default_layout) {
+  if (shape_depth_ >= kMaxShapeDepth) {
+    return Error(lexer_.GetLoc(),
+                 "Shape depth exceeds maximum supported depth.");
+  }
+  struct DepthGuard {
+    int64_t* d;
+    explicit DepthGuard(int64_t* d) : d(d) { (*d)++; }
+    ~DepthGuard() { (*d)--; }
+  } guard(&shape_depth_);
+
   if (lexer_.GetKind() == TokKind::kIdent && lexer_.GetStrVal() == "b" &&
       lexer_.LookAhead() == TokKind::kLparen) {  // Buffer shape
     lexer_.Lex();
