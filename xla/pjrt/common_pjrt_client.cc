@@ -27,6 +27,7 @@ limitations under the License.
 #include <utility>
 #include <vector>
 
+#include "absl/base/casts.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/inlined_vector.h"
@@ -564,6 +565,38 @@ void CommonPjRtBufferImpl::CopyToRemoteDevice(
       memory_space(), std::move(raw_buffer), std::move(definition_events),
       std::move(usage_event_promise), std::move(serialized_descriptor),
       std::move(on_done));
+}
+
+absl::StatusOr<PjRtDeviceEventRef>
+CommonPjRtRawBufferImpl::CopyRawToRemoteDevice(
+    Future<std::string> serialized_descriptor,
+    PjRtRawBuffer::RemoteSendCallback on_done,
+    std::vector<tsl::RCReference<tsl::AsyncValue>> transfer_dependency_avs) {
+  auto* client = absl::down_cast<CommonPjRtClient*>(memory_space()->client());
+
+  tsl::RCReference<PjRtDeviceEventPromise> usage_event_promise;
+  PjRtDeviceEventRef usage_event;
+  std::string event_name = "CopyRawToRemoteDevice";
+  if (client->event_tracking_enabled()) {
+    const auto& current_anno =
+        tsl::profiler::ScopedMemoryDebugAnnotation::CurrentAnnotation();
+    if (!current_anno.pending_op_name.empty()) {
+      absl::StrAppend(&event_name, " Op:", current_anno.pending_op_name);
+    }
+  }
+  auto event = client->CreateLinkedEventPromise(memory_space(), event_name);
+  if (!event.ok()) {
+    on_done(event.status(), /*sends_were_enqueued=*/false);
+    return event.status();
+  }
+  std::tie(usage_event_promise, usage_event) = std::move(*event);
+
+  client->ScheduleRemoteSend(
+      memory_space(), tsl::FormRef(this), std::move(transfer_dependency_avs),
+      std::move(usage_event_promise), std::move(serialized_descriptor),
+      std::move(on_done));
+
+  return usage_event;
 }
 
 absl::StatusOr<std::unique_ptr<PjRtBuffer>> CommonPjRtBufferImpl::Bitcast(

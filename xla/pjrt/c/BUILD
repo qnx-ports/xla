@@ -327,8 +327,10 @@ cc_library(
         ":pjrt_c_api_helpers",
         ":pjrt_c_api_raw_buffer_extension_hdrs",
         "//xla:future",
+        "//xla/pjrt:device_event",
         "//xla/pjrt:raw_buffer",
         "//xla/pjrt/c_api_client:pjrt_c_api_client",
+        "//xla/tsl/concurrency:async_value",
         "//xla/tsl/concurrency:ref_count",
         "//xla/tsl/platform:statusor",
         "@com_google_absl//absl/status",
@@ -440,6 +442,23 @@ cc_library(
 )
 
 cc_library(
+    name = "pjrt_c_api_status_utils",
+    srcs = ["pjrt_c_api_status_utils.cc"],
+    hdrs = ["pjrt_c_api_status_utils.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":pjrt_c_api_hdrs",
+        "//xla/tsl/platform:errors",
+        "//xla/tsl/platform:status",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/log:check",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
+    ],
+)
+
+cc_library(
     name = "pjrt_c_api_helpers",
     srcs = ["pjrt_c_api_helpers.cc"],
     hdrs = ["pjrt_c_api_helpers.h"],
@@ -449,6 +468,7 @@ cc_library(
         ":pjrt_c_api_layouts_extension_hdrs",
         ":pjrt_c_api_memory_descriptions_extension_hdrs",
         ":pjrt_c_api_profiler_extension_hdrs",
+        ":pjrt_c_api_status_utils",
         "//xla:future",
         "//xla:shape_util",
         "//xla:util",

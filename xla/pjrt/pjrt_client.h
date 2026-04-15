@@ -45,6 +45,7 @@ limitations under the License.
 #include "xla/hlo/builder/xla_computation.h"
 #include "xla/layout.h"
 #include "xla/literal.h"
+#include "xla/pjrt/device_event.h"
 #include "xla/pjrt/distributed/coordination/coordination_service.pb.h"
 #include "xla/pjrt/distributed/key_value_store_interface.h"
 #include "xla/pjrt/host_memory_allocator.h"
@@ -55,11 +56,14 @@ limitations under the License.
 #include "xla/pjrt/pjrt_device_description.h"
 #include "xla/pjrt/pjrt_executable.h"
 #include "xla/pjrt/pjrt_layout.h"
+#include "xla/pjrt/raw_buffer.h"
 #include "xla/pjrt/scoped_async_tracking_event.h"
 #include "xla/service/computation_placer.h"
 #include "xla/service/hlo_cost_analysis.h"
 #include "xla/shape.h"
 #include "xla/shape_util.h"
+#include "xla/tsl/concurrency/async_value.h"
+#include "xla/tsl/concurrency/ref_count.h"
 #include "xla/tsl/framework/allocator.h"
 #include "xla/tsl/lib/gtl/int_type.h"
 #include "xla/tsl/platform/errors.h"
@@ -1022,6 +1026,19 @@ class PjRtClient {
                               PjRtCrossHostRecvNotifier notifier) {
     return absl::UnimplementedError(
         "MakeCrossHostReceiveBuffers is not implemented.");
+  }
+
+  // Similar to MakeCrossHostReceiveBuffers, but uses PjRtRawBuffer instead of
+  // PjRtBuffer.
+  // Takes raw buffers and a notifier, and returns a vector of definition events
+  // that will be fulfilled once the receive operation is complete.
+  virtual absl::StatusOr<std::vector<PjRtDeviceEventRef>>
+  CrossHostReceiveBuffersInto(
+      absl::Span<const tsl::RCReference<PjRtRawBuffer>> buffers,
+      PjRtCrossHostRecvNotifier notifier,
+      std::vector<tsl::RCReference<tsl::AsyncValue>> transfer_dependency_avs) {
+    return absl::UnimplementedError(
+        "CrossHostReceiveBuffersInto is not implemented.");
   }
 
   // Return the PjRtHostMemoryForDeviceManager for this client. It can be

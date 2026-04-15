@@ -16,12 +16,20 @@ limitations under the License.
 #ifndef XLA_PJRT_C_PJRT_C_API_RAW_BUFFER_EXTERNAL_H_
 #define XLA_PJRT_C_PJRT_C_API_RAW_BUFFER_EXTERNAL_H_
 
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <vector>
+
 #include "absl/status/statusor.h"
 #include "xla/future.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
 #include "xla/pjrt/c/pjrt_c_api_raw_buffer_extension.h"
 #include "xla/pjrt/c_api_client/pjrt_c_api_client.h"
+#include "xla/pjrt/device_event.h"
 #include "xla/pjrt/raw_buffer.h"
+#include "xla/tsl/concurrency/async_value.h"
+#include "xla/tsl/concurrency/ref_count.h"
 
 namespace pjrt {
 
@@ -75,6 +83,10 @@ class PjRtCApiRawBuffer : public PjRtRawBuffer {
                                int64_t transfer_size) override;
   Future<> CopyRawDeviceToHost(void* dst, int64_t offset,
                                int64_t transfer_size) override;
+  absl::StatusOr<PjRtDeviceEventRef> CopyRawToRemoteDevice(
+      Future<std::string> serialized_descriptor, RemoteSendCallback on_done,
+      std::vector<tsl::RCReference<tsl::AsyncValue>> transfer_dependency_avs)
+      override;
 
  private:
   PJRT_RawBuffer* c_buffer_;
