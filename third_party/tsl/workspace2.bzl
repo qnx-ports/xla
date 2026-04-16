@@ -351,7 +351,7 @@ def _tf_repositories():
             "//third_party/systemlibs:grpc.bazel.generate_cc.bzl": "bazel/generate_cc.bzl",
             "//third_party/systemlibs:grpc.bazel.protobuf.bzl": "bazel/protobuf.bzl",
         },
-        urls = tf_mirror_urls("https://github.com/eleir9268/grpc/archive/026ec1fdc6cf32ee8751c862f46c8b06dc56ac07.tar.gz"),
+        urls = tf_mirror_urls("https://github.com/qnx-ports/grpc/archive/026ec1fdc6cf32ee8751c862f46c8b06dc56ac07.tar.gz"),
     )
 
     llvm_setup(name = "llvm-project")

@@ -12,7 +12,7 @@ def repo():
         name = "mpitrampoline",
         sha256 = MPITRAMPOLINE_SHA256,
         strip_prefix = "MPItrampoline-{commit}".format(commit = MPITRAMPOLINE_COMMIT),
-        urls = tf_mirror_urls("https://github.com/eleir9268/mpitrampoline/archive/{commit}.tar.gz".format(commit = MPITRAMPOLINE_COMMIT)),
+        urls = tf_mirror_urls("https://github.com/qnx-ports/mpitrampoline/archive/{commit}.tar.gz".format(commit = MPITRAMPOLINE_COMMIT)),
         patch_file = ["//third_party/mpitrampoline:gen.patch"],
         build_file = "//third_party/mpitrampoline:mpitrampoline.BUILD",
     )

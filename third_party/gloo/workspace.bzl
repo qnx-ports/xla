@@ -12,6 +12,6 @@ def repo():
         name = "gloo",
         sha256 = GLOO_SHA256,
         strip_prefix = "gloo-{commit}".format(commit = GLOO_COMMIT),
-        urls = tf_mirror_urls("https://github.com/eleir9268/gloo/archive/{commit}.tar.gz".format(commit = GLOO_COMMIT)),
+        urls = tf_mirror_urls("https://github.com/qnx-ports/gloo/archive/{commit}.tar.gz".format(commit = GLOO_COMMIT)),
         build_file = "//third_party/gloo:gloo.BUILD",
     )
