@@ -1920,8 +1920,6 @@ absl::Status GpuCompiler::OptimizeHloPostLayoutAssignment(
                cuda_cc->major == se::CudaComputeCapability::kVolta) {
       // Greedy pattern matching for custom kernel fusions.
       pipeline.AddPass<SimplifyFPConversions>();
-      pipeline.AddPass<CustomKernelFusionRewriter>(
-          &gpu_target_config.device_description);
     }
 
     // Rewrite GEMMs into custom calls.
