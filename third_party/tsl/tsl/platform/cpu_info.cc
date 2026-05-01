@@ -22,13 +22,13 @@ limitations under the License.
 #if defined(PLATFORM_IS_X86)
 #include <mutex>  // NOLINT
 #endif
-#if defined(PLATFORM_IS_ARM64) && !defined(__APPLE__) && !defined(__OpenBSD__)
+#if defined(PLATFORM_IS_ARM64) && !defined(__APPLE__) && !defined(__OpenBSD__) && !defined(__QNX__)
 #include <sys/auxv.h>
 #ifndef HWCAP_CPUID
 #define HWCAP_CPUID (1 << 11)
 #endif
 #include <fstream>
-#endif  // PLATFORM_IS_ARM64 && !__APPLE__ && !__OpenBSD__
+#endif  // PLATFORM_IS_ARM64 && !__APPLE__ && !__OpenBSD__ && !__QNX__
 
 // SIMD extension querying is only available on x86.
 #ifdef PLATFORM_IS_X86
@@ -371,7 +371,7 @@ void InitCPUIDInfo() {
 
 #endif  // PLATFORM_IS_X86
 
-#if defined(PLATFORM_IS_ARM64) && !defined(__APPLE__) && !defined(__OpenBSD__)
+#if defined(PLATFORM_IS_ARM64) && !defined(__APPLE__) && !defined(__OpenBSD__) && !defined(__QNX__)
 
 class CPUIDInfo;
 void InitCPUIDInfo();
@@ -486,7 +486,7 @@ void InitCPUIDInfo() {
   absl::call_once(cpuid_once_flag, CPUIDInfo::Initialize);
 }
 
-#endif  // PLATFORM_IS_ARM64 && !__APPLE__ && !__OpenBSD__
+#endif  // PLATFORM_IS_ARM64 && !__APPLE__ && !__OpenBSD__ && !__QNX__
 
 }  // namespace
 
@@ -499,7 +499,7 @@ bool TestCPUFeature(CPUFeature feature) {
 }
 
 bool TestAarch64CPU(Aarch64CPU cpu) {
-#if defined(PLATFORM_IS_ARM64) && !defined(__APPLE__) && !defined(__OpenBSD__)
+#if defined(PLATFORM_IS_ARM64) && !defined(__APPLE__) && !defined(__OpenBSD__) && !defined(__QNX__)
   return CPUIDInfo::TestAarch64CPU(cpu);
 #else
   return false;
@@ -519,7 +519,7 @@ int CPUFamily() {
 #ifdef PLATFORM_IS_X86
   InitCPUIDInfo();
   return cpuid->family();
-#elif defined(PLATFORM_IS_ARM64) && !defined(__APPLE__) && !defined(__OpenBSD__)
+#elif defined(PLATFORM_IS_ARM64) && !defined(__APPLE__) && !defined(__OpenBSD__) && !defined(__QNX__)
   InitCPUIDInfo();
   return cpuid->implementer();
 #else
@@ -531,7 +531,7 @@ int CPUModelNum() {
 #ifdef PLATFORM_IS_X86
   InitCPUIDInfo();
   return cpuid->model_num();
-#elif defined(PLATFORM_IS_ARM64) && !defined(__APPLE__) && !defined(__OpenBSD__)
+#elif defined(PLATFORM_IS_ARM64) && !defined(__APPLE__) && !defined(__OpenBSD__) && !defined(__QNX__)
   InitCPUIDInfo();
   return cpuid->cpunum();
 #else
