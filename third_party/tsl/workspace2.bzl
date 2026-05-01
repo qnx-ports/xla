@@ -160,7 +160,7 @@ def _tf_repositories():
 
     tf_http_archive(
         name = "mkl_dnn_acl_compatible",
-        build_file = "//tensorflow/third_party/mkl_dnn:mkldnn_acl.BUILD",
+        build_file = "//third_party/mkl_dnn:mkldnn_acl.BUILD",
         patch_file = [
             "//tensorflow/third_party/mkl_dnn:onednn_acl_threadcap.patch",
             "//tensorflow/third_party/mkl_dnn:onednn_acl_reorder.patch",
