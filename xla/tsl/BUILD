@@ -300,6 +300,18 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
+config_setting(
+    name = "qnx_arm64",
+    values = {"cpu": "qnx_arm64"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "qnx_x64",
+    values = {"cpu": "qnx_x64"},
+    visibility = ["//visibility:public"],
+)
+
 selects.config_setting_group(
     name = "aarch32_or_cross",
     match_any = [
@@ -315,6 +327,7 @@ selects.config_setting_group(
         ":linux_aarch64",
         ":macos_arm64",
         ":windows_aarch64",
+        ":qnx_arm64",
         ":with_cross_compiler_support",
     ],
     visibility = ["//visibility:public"],
@@ -326,6 +339,7 @@ selects.config_setting_group(
         ":linux_aarch64",
         ":macos_arm64",
         ":windows_aarch64",
+        ":qnx_arm64",
         ":linux_armhf",
         ":with_cross_compiler_support",
     ],
@@ -356,6 +370,7 @@ selects.config_setting_group(
         ":linux_x86_64",
         ":macos_x86_64",
         ":windows_x86_64",
+        ":qnx_x64",
         ":with_cross_compiler_support",
     ],
     visibility = ["//visibility:public"],
@@ -436,6 +451,7 @@ selects.config_setting_group(
         ":armeabi",
         ":armeabi-v7a",
         ":arm64-v8a",
+        ":qnx_arm64",
         ":linux_aarch64",
         ":linux_armhf",
     ],
