@@ -2,11 +2,6 @@ load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("@local_config_cuda//cuda:build_defs.bzl", "if_cuda")
 load("@local_config_rocm//rocm:build_defs.bzl", "if_rocm")
 load("@tsl//tsl/platform:build_config.bzl", "tf_proto_library")
-load(
-    "@tsl//tsl/platform:build_config_root.bzl",
-    "if_llvm_aarch64_available",
-    "if_llvm_x86_available",
-)
 load("@tsl//tsl/platform:rules_cc.bzl", "cc_library")
 load(
     "@tsl//tsl/platform/default:cuda_build_defs.bzl",
@@ -1415,13 +1410,7 @@ tsl_pybind_extension(
             ],
             "//conditions:default": [],
         }),
-    ) + if_llvm_aarch64_available([
-        "@llvm-project//llvm:AArch64AsmParser",
-        "@llvm-project//llvm:AArch64CodeGen",
-    ]) + if_llvm_x86_available([
-        "@llvm-project//llvm:X86AsmParser",
-        "@llvm-project//llvm:X86CodeGen",
-    ]),
+    ),
 )
 
 cc_library(
