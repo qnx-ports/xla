@@ -63,10 +63,10 @@ def _tf_repositories():
 
     tf_http_archive(
         name = "boringssl",
-        sha256 = "9dc53f851107eaf87b391136d13b815df97ec8f76dadb487b58b2fc45e624d2c",
-        strip_prefix = "boringssl-c00d7ca810e93780bd0c8ee4eea28f4f2ea4bcdc",
+        sha256 = "2aaf433bef819cf193bdabd69ca3b625c4e420b73200b02c7c0e0959e7541c47",
+        strip_prefix = "boringssl-cee76a8cc7ad38055865650ffc4f564111a75467",
         system_build_file = "//third_party/systemlibs:boringssl.BUILD",
-        urls = tf_mirror_urls("https://github.com/google/boringssl/archive/c00d7ca810e93780bd0c8ee4eea28f4f2ea4bcdc.tar.gz"),
+        urls = tf_mirror_urls("https://github.com/qnx-ports/boringssl/archive/cee76a8cc7ad38055865650ffc4f564111a75467.tar.gz"),
     )
 
     tf_http_archive(
